@@ -51,12 +51,12 @@ Template.browseCollection.onRendered(function () {
 Template.browseCollection.events({
     'click #btnSaveFindFindOne': function (e) {
         e.preventDefault();
-        Template.browseCollection.saveEditor();
+        Template.warnDemoApp();
     },
 
     'click #btnDelFindFindOne': function (e) {
         e.preventDefault();
-        Template.browseCollection.deleteDocument();
+        Template.warnDemoApp();
     },
 
     'click #btnShowQueryHistories': function () {

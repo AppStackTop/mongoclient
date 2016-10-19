@@ -44,50 +44,7 @@ Template.aggregatePipeline.onRendered(function () {
 Template.aggregatePipeline.events({
     'click #btnExecuteAggregatePipeline': function (e) {
         e.preventDefault();
-
-        var selectedCollection = $("#cmbCollections").chosen().val();
-        var stages = $('#stages').find('li');
-        if (!selectedCollection) {
-            toastr.warning('Please select a collection first !');
-            return;
-        }
-
-        if (stages.length == 0) {
-            toastr.warning('At least one stage is required !');
-            return;
-        }
-
-        
-        var l = Ladda.create(document.querySelector('#btnExecuteAggregatePipeline'));
-        l.start();
-
-        var pipeline;
-        try {
-            pipeline = Template.aggregatePipeline.createPipeline(stages);
-        }
-        catch (e) {
-            toastr.error('One of the stages has error: ' + e);
-            Ladda.stopAll();
-            return;
-        }
-
-        var convertIds = $('#aConvertObjectIds').iCheck('update')[0].checked;
-        var convertDates = $('#aConvertIsoDates').iCheck('update')[0].checked;
-
-        Meteor.call("aggregate", selectedCollection, pipeline, convertIds, convertDates,
-            function (err, result) {
-                if (err || result.error) {
-                    Template.showMeteorFuncError(err, result, "Couldn't execute ");
-                }
-                else {
-                    Template.aggregateResultModal.setResult(result.result);
-                    $('#aggregateResultModal').modal('show');
-                }
-
-                Ladda.stopAll();
-            }
-        );
-
+        Template.warnDemoApp();
     },
 
     'change #cmbStageQueries': function (e) {

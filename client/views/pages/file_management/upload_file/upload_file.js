@@ -15,25 +15,7 @@ Template.uploadFile.onRendered(function () {
 Template.uploadFile.events({
     'click #btnUpload': function (e) {
         e.preventDefault();
-        var blob = $('#inputFile')[0].files[0];
-        if (blob) {
-            swal({
-                title: "Are you sure ?",
-                text: "Are you sure to continue uploading file ?",
-                type: "warning",
-                showCancelButton: true,
-                confirmButtonColor: "#DD6B55",
-                confirmButtonText: "Yes!",
-                cancelButtonText: "No"
-            }, function (isConfirm) {
-                if (isConfirm) {
-                    $('#fileInfoModal').on('shown.bs.modal', function() {
-                        Template.initializeCodeMirror($('#divMetadata'), 'txtMetadata');
-                    });
-                    $('#fileInfoModal').modal('show');
-                }
-            });
-        }
+        Template.warnDemoApp();
     }
 });
 

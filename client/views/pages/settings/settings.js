@@ -16,15 +16,7 @@ Template.settings.onRendered(function () {
 Template.settings.events({
     'click #btnSaveSettings': function (e) {
         e.preventDefault();
-        
-        var laddaButton = Ladda.create(document.querySelector('#btnSaveSettings'));
-        laddaButton.start();
-
-        Meteor.call('updateSettings', Template.settings.getSettingsFromForm());
-        toastr.success('Successfuly saved !');
-
-                     
-        Ladda.stopAll();
+        Template.warnDemoApp();
     }
 });
 

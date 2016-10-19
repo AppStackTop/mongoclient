@@ -21,79 +21,17 @@ Template.fileManagement.events({
 
     'click .editor_download': function (e) {
         e.preventDefault();
-        var fileRow = Session.get(Template.strSessionSelectedFile);
-        if (fileRow) {
-            window.open(Router.url('download', {
-                fileId: fileRow._id,
-                bucketName: $('#txtBucketName').val()
-            }));
-        }
+        Template.warnDemoApp();
     },
 
     'click .editor_delete': function (e) {
-        var fileRow = Session.get(Template.strSessionSelectedFile);
-        if (fileRow) {
-            swal({
-                title: "Are you sure ?",
-                text: "You can NOT recover this file afterwards, are you sure ?",
-                type: "warning",
-                showCancelButton: true,
-                confirmButtonColor: "#DD6B55",
-                confirmButtonText: "Yes!",
-                cancelButtonText: "No"
-            }, function (isConfirm) {
-                if (isConfirm) {
-                    
-                    var l = Ladda.create(document.querySelector('#btnReloadFiles'));
-                    l.start();
-                    Meteor.call('deleteFile', $('#txtBucketName').val(), fileRow._id, function (err) {
-                        if (err) {
-                            toastr.error("Couldn't delete: " + err.message);
-                        } else {
-                            toastr.success('Successfuly deleted !');
-                            Template.fileManagement.initFileInformations();
-                        }
-                    });
-                }
-            });
-        }
+        e.preventDefault();
+        Template.warnDemoApp();
     },
 
     'click #btnUpdateMetadata': function (e) {
         e.preventDefault();
-
-        swal({
-            title: "Are you sure ?",
-            text: "Existing metadata will be overwritten, are you sure ?",
-            type: "warning",
-            showCancelButton: true,
-            confirmButtonColor: "#DD6B55",
-            confirmButtonText: "Yes!",
-            cancelButtonText: "No"
-        }, function (isConfirm) {
-            if (isConfirm) {
-                
-                var l = Ladda.create(document.querySelector('#btnUpdateMetadata'));
-                l.start();
-                var jsonEditor = $('#jsonEditorOfMetadata').data('jsoneditor');
-                var setValue = jsonEditor.get();
-                delete setValue._id;
-
-                Meteor.call('updateOne', $('#txtBucketName').val() + '.files',
-                    {'_id': Session.get(Template.strSessionSelectedFile)._id}, {"$set": setValue}, {}, true, true,
-                    function (err, result) {
-                        if (err) {
-                            toastr.error("Couldn't update file info: " + err.message);
-                        } else {
-                            toastr.success('Successfully updated file information !');
-                            Template.fileManagement.proceedShowingMetadata(Session.get(Template.strSessionSelectedFile)._id, jsonEditor);
-                        }
-
-                        
-           Ladda.stopAll();
-                    });
-            }
-        });
+        Template.warnDemoApp();
     },
 
     'click .editor_show_metadata': function (e) {

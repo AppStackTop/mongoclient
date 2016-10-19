@@ -12,44 +12,8 @@ Template.addCollection.onRendered(function () {
 
 Template.addCollection.events({
     'click #btnCreateCollection': function (e) {
-        
         e.preventDefault();
-        var isCapped = $('#divIsCapped').iCheck('update')[0].checked;
-        var autoIndexId = $('#divAutoIndexId').iCheck('update')[0].checked;
-        var collectionName = $('#inputCollectionName').val();
-        var size = $('#inputCollectionSize').val();
-        var maxDocs = $('#inputMaxDocSize').val();
-
-        if (!collectionName) {
-            toastr.error('Collection name is required !');
-            return;
-        }
-
-        var options = {
-            size: size,
-            capped: isCapped,
-            autoIndexId: autoIndexId,
-            max: maxDocs
-        };
-
-        
-        var laddaButton = Ladda.create(document.querySelector('#btnCreateCollection'));
-        laddaButton.start();
-
-        Meteor.call('createCollection', collectionName, options, function (err) {
-            if (err) {
-                toastr.error("Couldn't create collection: " + err.message);
-                
-                Ladda.stopAll();
-                return;
-            }
-
-            Template.navigation.renderCollectionNames();
-            $('#collectionAddModal').modal('hide');
-            toastr.success('Successfuly created collection: ' + collectionName);
-
-            Ladda.stopAll();
-        });
+        Template.warnDemoApp();
     }
 });
 

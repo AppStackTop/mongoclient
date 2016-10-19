@@ -3,19 +3,12 @@ Template.navigation.events({
     'click #anchorDatabaseDumpRestore': function (e) {
         
         e.preventDefault();
-        var connection = Connections.findOne({_id: Session.get(Template.strSessionConnection)});
-
-        if (connection.sshAddress) {
-            toastr.info('Unfortunately, this feature is not usable in SSH connections');
-            return;
-        }
-
-        Router.go('databaseDumpRestore');
+        Template.warnDemoApp();
     },
 
     'click #btnAddCollection': function (e) {
         e.preventDefault();
-        $('#collectionAddModal').modal('show');
+        Template.warnDemoApp();
     },
 
     'click #btnRefreshCollections': function (e) {
@@ -25,75 +18,17 @@ Template.navigation.events({
 
     'click #btnDropCollection': function (e) {
         e.preventDefault();
-
-        var collectionName = this.name;
-        swal({
-            title: "Are you sure?",
-            text: this.name + " collection will be dropped, are you sure ?",
-            type: "warning",
-            showCancelButton: true,
-            confirmButtonColor: "#DD6B55",
-            confirmButtonText: "Yes, drop it!",
-            closeOnConfirm: true
-        }, function (isConfirm) {
-            if (isConfirm) {
-                Template.navigation.dropCollection(collectionName);
-            }
-        });
+        Template.warnDemoApp();
     },
 
     'click #btnDropAllCollections': function (e) {
         e.preventDefault();
-        swal({
-            title: "Are you sure?",
-            text: "All collections except system, will be dropped, are you sure ?",
-            type: "warning",
-            showCancelButton: true,
-            confirmButtonColor: "#DD6B55",
-            confirmButtonText: "Yes, drop them!",
-            closeOnConfirm: false
-        }, function () {
-            Meteor.call('dropAllCollections', function (err, result) {
-                if (err || result.error) {
-                    Template.showMeteorFuncError(err, result, "Couldn't drop all collections");
-                }
-                else {
-                    Template.clearSessions();
-                    swal({
-                        title: "Dropped!",
-                        text: "Successfuly dropped all collections database ",
-                        type: "success"
-                    });
-                }
-            });
-        });
+        Template.warnDemoApp();
     },
 
     'click #btnDropDatabase': function (e) {
         e.preventDefault();
-        swal({
-            title: "Are you sure?",
-            text: "You will not be able to recover this database!",
-            type: "warning",
-            showCancelButton: true,
-            confirmButtonColor: "#DD6B55",
-            confirmButtonText: "Yes, drop it!",
-            closeOnConfirm: false
-        }, function () {
-            Meteor.call('dropDB', function (err, result) {
-                if (err || result.error) {
-                    Template.showMeteorFuncError(err, result, "Couldn't drop database");
-                }
-                else {
-                    Template.clearSessions();
-                    swal({
-                        title: "Dropped!",
-                        text: "Successfuly dropped database ",
-                        type: "success"
-                    });
-                }
-            });
-        });
+        Template.warnDemoApp();
     },
 
 
@@ -189,18 +124,6 @@ Template.navigation.handleNavigationAndSessions = function () {
 
     $('#cmbQueries').val('').trigger('chosen:updated');
     $('#cmbAdminQueries').val('').trigger('chosen:updated');
-};
-
-Template.navigation.dropCollection = function (collectionName) {
-    Meteor.call('dropCollection', collectionName, function (err, result) {
-        if (err || result.error) {
-            Template.showMeteorFuncError(err, result, "Couldn't drop collection");
-        }
-        else {
-            Template.navigation.renderCollectionNames();
-            toastr.success('Successfuly dropped collection: ' + collectionName);
-        }
-    });
 };
 
 Template.navigation.renderCollectionNames = function () {
