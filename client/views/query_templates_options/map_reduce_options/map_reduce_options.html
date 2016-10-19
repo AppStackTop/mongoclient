@@ -28,10 +28,10 @@
 <template name="out">
     <div class="form-group">
         <label class="col-lg-1 control-label">Out</label>
-        <div class="col-lg-11">
-            <pre class="form-control" id='aceOut'></pre>
-            <span class="help-block m-b-none">You can use <strong>string</strong> to query <strong>ISODate</strong> and <strong>ObjectID</strong>, date format is <strong>YYYY-MM-DD
-                HH:mm:ss</strong><br/>Example: <i>{inline:1} | {replace:'collectionName'} | {merge:'collectionName'} |
+        <div id="divOut" class="col-lg-11">
+            <textarea id="txtOut" class="form-control"></textarea>
+            <span class="help-block m-b-none">By default, valid <strong>ObjectID</strong> and <strong>ISODate (YYYY-MM-DD
+                HH:mm:ss)</strong> strings are being converted into MongoDB objects.<br/>Example: <i>{inline:1} | {replace:'collectionName'} | {merge:'collectionName'} |
                 {reduce:'collectionName'}</i></span>
         </div>
     </div>
@@ -40,8 +40,8 @@
 <template name="finalize">
     <div class="form-group">
         <label class="col-lg-1 control-label">Finalize</label>
-        <div class="col-lg-11">
-            <pre class="form-control" style="height: 150px" id='aceFinalize'></pre>
+        <div id="divFinalize" class="col-lg-11">
+            <textarea id="txtFinalize" class="form-control"></textarea>
             <span class="help-block m-b-none">Please provide a valid function which starts with <strong>function</strong> keyword</span>
         </div>
     </div>
@@ -50,10 +50,10 @@
 <template name="scope">
     <div class="form-group">
         <label class="col-lg-1 control-label">Scope</label>
-        <div class="col-lg-11">
-            <pre class="form-control" id='aceScope'></pre>
-            <span class="help-block m-b-none">You can use <strong>string</strong> to query <strong>ISODate</strong> and <strong>ObjectID</strong>, date format is <strong>YYYY-MM-DD
-                HH:mm:ss</strong></span>
+        <div id="divScope" class="col-lg-11">
+            <textarea id="txtScope" class="form-control"></textarea>
+            <span class="help-block m-b-none">By default, valid <strong>ObjectID</strong> and <strong>ISODate (YYYY-MM-DD
+                HH:mm:ss)</strong> strings are being converted into MongoDB objects.</span>
         </div>
     </div>
 </template>

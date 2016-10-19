@@ -1,3 +1,5 @@
+var toastr = require('toastr');
+var Ladda = require('ladda');
 /**
  * Created by RSercan on 2.1.2016.
  */
@@ -24,7 +26,7 @@ Template.count.executeQuery = function (historyParams) {
     var convertIds = $('#aConvertObjectIds').iCheck('update')[0].checked;
     var convertDates = $('#aConvertIsoDates').iCheck('update')[0].checked;
 
-    Meteor.call("count", Session.get(Template.strSessionConnection), selectedCollection, selector, convertIds, convertDates,
+    Meteor.call("count", selectedCollection, selector, convertIds, convertDates,
         function (err, result) {
             Template.renderAfterQueryExecution(err, result, false, "count", params, (historyParams ? false : true));
         }

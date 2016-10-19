@@ -8,12 +8,32 @@ getConnectionUrl = function (connection) {
 
     var connectionUrl = 'mongodb://';
     if (connection.user && connection.password) {
-        connectionUrl += connection.user + ':' + connection.password + '@';
+        connectionUrl += connection.user + ':' + encodeURIComponent(connection.password) + '@';
+    } else if (connection.x509Username) {
+        connectionUrl += encodeURIComponent(connection.x509Username) + '@'
     }
+
+
     connectionUrl += connection.host + ':' + connection.port + '/' + connection.databaseName;
 
+    if (connection.readFromSecondary) {
+        connectionUrl += '?readPreference=secondary';
+    }
+
+    if (connection.x509Username) {
+        if (connectionUrl.indexOf('?') != -1) {
+            connectionUrl += '&authMechanism=MONGODB-X509';
+        } else {
+            connectionUrl += '?authMechanism=MONGODB-X509';
+        }
+    }
+
     if (connection.authDatabaseName) {
-        connectionUrl += '?authSource=' + connection.authDatabaseName;
+        if (connectionUrl.indexOf('?') != -1) {
+            connectionUrl += '&authSource=' + connection.authDatabaseName;
+        } else {
+            connectionUrl += '?authSource=' + connection.authDatabaseName;
+        }
     }
 
     return connectionUrl;
@@ -51,6 +71,21 @@ clearConnectionOptionsForLog = function (connectionOptions) {
     return result;
 };
 
+removeConnectionTopology = function (obj) {
+    if (obj.result && (typeof obj.result === 'object')) {
+        if ('connection' in obj.result) {
+            delete obj.result.connection;
+        }
+    }
+};
+
+removeCollectionTopology = function (obj) {
+    if (obj.result && (typeof obj.result === 'object')) {
+        obj.result = {};
+    }
+};
+
+
 convertBSONtoJSON = function (obj) {
     convertObjectIDsToString(obj);
     convertDatesToString(obj);
@@ -66,24 +101,26 @@ convertJSONtoBSON = function (obj, convertObjectId, convertIsoDates) {
 };
 
 var addConnectionParamsToOptions = function (connection, result) {
-    result.server.ssl = !!connection.useSsl;
+    if (connection.useSsl || connection.sslCertificate) {
+        result.server.ssl = true;
+    }
 
     if (connection.sslCertificate) {
-        result.server.sslCert = connection.sslCertificate;
+        result.server.sslCert = new Buffer(connection.sslCertificate);
         if (connection.passPhrase) {
             result.server.sslPass = connection.passPhrase;
         }
     }
 
     if (connection.rootCACertificate) {
-        result.server.sslCA = connection.rootCACertificate;
+        result.server.sslCA = new Buffer(connection.rootCACertificate);
         result.server.sslValidate = true;
     } else {
         result.server.sslValidate = false;
     }
 
     if (connection.certificateKey) {
-        result.server.sslKey = connection.certificateKey;
+        result.server.sslKey = new Buffer(connection.certificateKey);
     }
 };
 var convertDatesToString = function (obj) {
@@ -95,7 +132,7 @@ var convertDatesToString = function (obj) {
             else if (obj[property].constructor == Array) {
                 for (var i = 0; i < obj[property].length; i++) {
 
-                    if (Object.prototype.toString.call(obj[property][i]) === '[object Date]') {
+                    if (obj[property][i] != null && Object.prototype.toString.call(obj[property][i]) === '[object Date]') {
                         obj[property][i] = moment(obj[property][i]).format('YYYY-MM-DD HH:mm:ss');
                     }
                     else {
@@ -113,7 +150,7 @@ var convertDatesToString = function (obj) {
 };
 
 var convertObjectIDsToString = function (obj) {
-    var objectID = Meteor.npmRequire('mongodb').ObjectID;
+    var objectID = require('mongodb').ObjectID;
 
     for (var property in obj) {
         if (obj.hasOwnProperty(property) && obj[property] != null) {
@@ -123,7 +160,7 @@ var convertObjectIDsToString = function (obj) {
             else if (obj[property].constructor == Array) {
                 for (var i = 0; i < obj[property].length; i++) {
 
-                    if (objectID.isValid(obj[property][i].toString())) {
+                    if (obj[property][i] != null && objectID.isValid(obj[property][i].toString())) {
                         obj[property][i] = obj[property][i].toString();
                     }
                     else {
@@ -141,7 +178,7 @@ var convertObjectIDsToString = function (obj) {
 };
 
 var convertValidObjectIds = function (obj) {
-    var objectID = Meteor.npmRequire('mongodb').ObjectID;
+    var objectID = require('mongodb').ObjectID;
 
     for (var property in obj) {
         if (obj.hasOwnProperty(property) && obj[property] != null) {
@@ -151,7 +188,7 @@ var convertValidObjectIds = function (obj) {
             else if (obj[property].constructor == Array) {
                 for (var i = 0; i < obj[property].length; i++) {
 
-                    if (objectID.isValid(obj[property][i].toString())) {
+                    if (obj[property][i] != null && objectID.isValid(obj[property][i].toString())) {
                         obj[property][i] = new objectID(obj[property][i].toString());
                     }
                     else {
@@ -178,7 +215,7 @@ var convertValidDates = function (obj) {
             else if (obj[property].constructor == Array) {
                 for (var i = 0; i < obj[property].length; i++) {
 
-                    if (moment(obj[property][i].toString(), 'YYYY-MM-DD HH:mm:ss', true).isValid()) {
+                    if (obj[property][i] != null && moment(obj[property][i].toString(), 'YYYY-MM-DD HH:mm:ss', true).isValid()) {
                         obj[property][i] = moment(obj[property][i].toString(), 'YYYY-MM-DD HH:mm:ss', true).toDate();
                     }
                     else {

@@ -1,8 +1,10 @@
+var toastr = require('toastr');
+var Ladda = require('ladda');
 /**
  * Created by RSercan on 2.1.2016.
  */
 Template.createIndex.onRendered(function () {
-    Template.initializeAceEditor('aceFields', Template.createIndex.executeQuery);
+    Template.initializeCodeMirror($('#divFields'), 'txtFields');
     Template.createIndex.initializeOptions();
     Template.changeConvertOptionsVisibility(false);
 });
@@ -23,7 +25,7 @@ Template.createIndex.executeQuery = function (historyParams) {
     Template.browseCollection.initExecuteQuery();
     var selectedCollection = Session.get(Template.strSessionSelectedCollection);
     var options = historyParams ? historyParams.options : Template.createIndexOptions.getOptions();
-    var fields = historyParams ? JSON.stringify(historyParams.fields) : ace.edit("aceFields").getSession().getValue();
+    var fields = historyParams ? JSON.stringify(historyParams.fields) : Template.getCodeMirrorValue($('#divFields'));
 
     fields = Template.convertAndCheckJSON(fields);
     if (fields["ERROR"]) {
@@ -43,7 +45,7 @@ Template.createIndex.executeQuery = function (historyParams) {
         options: options
     };
 
-    Meteor.call("createIndex", Session.get(Template.strSessionConnection), selectedCollection, fields, options, function (err, result) {
+    Meteor.call("createIndex", selectedCollection, fields, options, function (err, result) {
         Template.renderAfterQueryExecution(err, result, false, "createIndex", params, (historyParams ? false : true));
     });
 };

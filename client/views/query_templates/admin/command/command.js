@@ -1,15 +1,17 @@
+var toastr = require('toastr');
+var Ladda = require('ladda');
 /**
  * Created by RSercan on 10.1.2016.
  */
 Template.command.onRendered(function () {
-    Template.initializeAceEditor('aceCommand', Template.command.executeQuery);
+    Template.initializeCodeMirror($('#divCommand'), 'txtCommand');
     Template.changeConvertOptionsVisibility(true);
     Template.changeRunOnAdminOptionVisibility(true);
 });
 
 Template.command.executeQuery = function () {
     Template.adminQueries.initExecuteQuery();
-    var command = ace.edit("aceCommand").getSession().getValue();
+    var command = Template.getCodeMirrorValue($('#divCommand'));
 
     command = Template.convertAndCheckJSON(command);
     if (command["ERROR"]) {
@@ -22,7 +24,7 @@ Template.command.executeQuery = function () {
     var convertDates = $('#aConvertIsoDates').iCheck('update')[0].checked;
     var runOnAdminDB = $('#aRunOnAdminDB').iCheck('update')[0].checked;
 
-    Meteor.call("command", Session.get(Template.strSessionConnection), command, convertIds, convertDates, runOnAdminDB,
+    Meteor.call("command", command, convertIds, convertDates, runOnAdminDB,
         function (err, result) {
             Template.renderAfterQueryExecution(err, result, true);
         }

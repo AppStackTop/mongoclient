@@ -1,3 +1,19 @@
+var toastr = require('toastr');
+var Ladda = require('ladda');
+var fbbkJson = require("fbbk-json");
+var CodeMirror = require("codemirror");
+
+require("/node_modules/codemirror/mode/javascript/javascript.js");
+require("/node_modules/codemirror/addon/fold/brace-fold.js");
+require("/node_modules/codemirror/addon/fold/comment-fold.js");
+require("/node_modules/codemirror/addon/fold/foldcode.js");
+require("/node_modules/codemirror/addon/fold/foldgutter.js");
+require("/node_modules/codemirror/addon/fold/indent-fold.js");
+require("/node_modules/codemirror/addon/fold/markdown-fold.js");
+require("/node_modules/codemirror/addon/fold/xml-fold.js");
+require("/node_modules/codemirror/addon/hint/javascript-hint.js");
+require("/node_modules/codemirror/addon/hint/show-hint.js");
+
 /**
  * Created by RSercan on 26.12.2015.
  */
@@ -23,14 +39,13 @@ Template.strSessionUsermanagementUser = "userManagementUser";
 Template.strSessionUsermanagementRole = "userManagementRole";
 Template.strSessionUsermanagementPrivilege = "userManagementPrivilege";
 
-
 Template.clearSessions = function () {
     Object.keys(Session.keys).forEach(function (key) {
         Session.set(key, undefined);
     })
 };
 
-Template.initiateDatatable = function (selector, sessionKey) {
+Template.initiateDatatable = function (selector, sessionKey, noDeleteEvent) {
     selector.find('tbody').on('click', 'tr', function () {
         var table = selector.DataTable();
         if ($(this).hasClass('selected')) {
@@ -46,9 +61,11 @@ Template.initiateDatatable = function (selector, sessionKey) {
         }
     });
 
-    selector.find('tbody').on('click', 'a.editor_delete', function () {
-        selector.DataTable().row($(this).parents('tr')).remove().draw();
-    });
+    if (!noDeleteEvent) {
+        selector.find('tbody').on('click', 'a.editor_delete', function () {
+            selector.DataTable().row($(this).parents('tr')).remove().draw();
+        });
+    }
 };
 
 Template.renderAfterQueryExecution = function (err, result, isAdmin, queryInfo, queryParams, saveHistory) {
@@ -61,12 +78,14 @@ Template.renderAfterQueryExecution = function (err, result, isAdmin, queryInfo, 
         } else {
             Template.browseCollection.setResult(result.result, queryInfo, queryParams, saveHistory);
         }
+
         Ladda.stopAll();
     }
 
 };
 
 Template.showMeteorFuncError = function (err, result, message) {
+
     var errorMessage;
     if (err) {
         errorMessage = err.message;
@@ -78,6 +97,7 @@ Template.showMeteorFuncError = function (err, result, message) {
     } else {
         toastr.error(message);
     }
+
 
     Ladda.stopAll();
 };
@@ -100,14 +120,44 @@ Template.sortObjectByKey = function (obj) {
     return sorted_obj;
 };
 
+
 Template.convertAndCheckJSON = function (json) {
     if (json == "") return {};
     var result = {};
     try {
-        result = JSON.parse(json);
+        if (!json.startsWith('{') && !json.startsWith(']')) {
+            json = '{' + json;
+        }
+
+        if ((!json.endsWith('}') && !json.endsWith(']')) ||
+            (json.split('\{').length - 1) > (json.split('\}').length - 1)) {
+            json = json + '}';
+        }
+
+        result = fbbkJson.parse(json);
     }
     catch (err) {
         result["ERROR"] = err.message;
+    }
+
+    return result;
+};
+
+
+Template.convertAndCheckJSONAsArray = function (json) {
+    if (json == "") return [];
+    var result = [];
+    try {
+        result = fbbkJson.parse(json);
+    }
+    catch (err) {
+        throw err.message;
+    }
+
+    if (!$.isArray(result)) {
+        var res = [];
+        res.push(result);
+        return res;
     }
 
     return result;
@@ -130,9 +180,9 @@ Template.checkCodeMirrorSelectorForOption = function (option, result, optionEnum
     }
 };
 
-Template.checkAceEditorOption = function (option, editorId, result, optionEnum) {
+Template.checkAndAddOption = function (option, divSelector, result, optionEnum) {
     if ($.inArray(option, Session.get(Template.strSessionSelectedOptions)) != -1) {
-        var val = ace.edit(editorId).getSession().getValue();
+        var val = Template.getCodeMirrorValue(divSelector);
 
         if (val == "") result[optionEnum[option]] = {};
         else {
@@ -211,7 +261,7 @@ Template.getDistinctKeysForAutoComplete = function (selectedCollection) {
         out: {inline: 1}
     };
 
-    Meteor.call("mapReduce", Session.get(Template.strSessionConnection), selectedCollection, mapFunc, reduceFunc, options, function (err, result) {
+    Meteor.call("mapReduce", selectedCollection, mapFunc, reduceFunc, options, function (err, result) {
         if (err || result.error) {
             Template.showMeteorFuncError(err, result, "Couldn't fetch distinct fields for autocomplete");
         }
@@ -221,41 +271,10 @@ Template.getDistinctKeysForAutoComplete = function (selectedCollection) {
                 nameArray.push(entry._id);
             });
             Session.set(Template.strSessionDistinctFields, nameArray);
+
             Ladda.stopAll();
         }
 
-    });
-};
-
-Template.initializeAceEditor = function (id, evt) {
-    Tracker.autorun(function (e) {
-        var editor = AceEditor.instance(id, {
-            mode: "javascript",
-            theme: 'dawn'
-        });
-        if (editor.loaded !== undefined) {
-            e.stop();
-            editor.$blockScrolling = Infinity;
-            editor.setOptions({
-                fontSize: "11pt",
-                showPrintMargin: false
-            });
-
-            // remove newlines in pasted text
-            editor.on("paste", function (e) {
-                e.text = e.text.replace(/[\r\n]+/g, " ");
-            });
-            // make mouse position clipping nicer
-            editor.renderer.screenToTextCoordinates = function (x, y) {
-                var pos = this.pixelToScreenCoordinates(x, y);
-                return this.session.screenToDocumentPosition(
-                    Math.min(this.session.getScreenLength() - 1, Math.max(pos.row, 0)),
-                    Math.max(pos.column, 0)
-                );
-            };
-            // disable Enter Shift-Enter keys
-            editor.commands.bindKey("Enter|Shift-Enter", evt);
-        }
     });
 };
 
@@ -302,4 +321,81 @@ String.prototype.parseFunction = function () {
     }
 
     return null;
+};
+
+Template.initializeCodeMirror = function (divSelector, txtAreaId, keepValue) {
+    var codeMirror;
+    if (!divSelector.data('editor')) {
+        codeMirror = CodeMirror.fromTextArea(document.getElementById(txtAreaId), {
+            mode: "javascript",
+            theme: "neat",
+            styleActiveLine: true,
+            lineNumbers: true,
+            lineWrapping: false,
+            extraKeys: {
+                "Ctrl-Q": function (cm) {
+                    cm.foldCode(cm.getCursor());
+                },
+                "Ctrl-Space": "autocomplete"
+            },
+            foldGutter: true,
+            gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+        });
+
+
+        if (keepValue) {
+            codeMirror.on("change", function () {
+                Session.set(Template.strSessionSelectorValue, codeMirror.getValue());
+            });
+        }
+
+        codeMirror.setSize('%100', 100);
+
+        CodeMirror.hint.javascript = function (editor) {
+            var list = Session.get(Template.strSessionDistinctFields) || [];
+            var cursor = editor.getCursor();
+            var currentLine = editor.getLine(cursor.line);
+            var start = cursor.ch;
+            var end = start;
+            while (end < currentLine.length && /[\w$]+/.test(currentLine.charAt(end))) ++end;
+            while (start && /[\w$]+/.test(currentLine.charAt(start - 1))) --start;
+            var curWord = start != end && currentLine.slice(start, end);
+            var regex = new RegExp('^' + curWord, 'i');
+            return {
+                list: (!curWord ? list : list.filter(function (item) {
+                    return item.match(regex);
+                })).sort(),
+                from: CodeMirror.Pos(cursor.line, start),
+                to: CodeMirror.Pos(cursor.line, end)
+            };
+        };
+
+        divSelector.data('editor', codeMirror);
+
+        $('.CodeMirror').resizable({
+            resize: function () {
+                codeMirror.setSize($(this).width(), $(this).height());
+            }
+        });
+    }
+    else {
+        codeMirror = divSelector.data('editor');
+    }
+
+    if (keepValue && Session.get(Template.strSessionSelectorValue)) {
+        codeMirror.setValue(Session.get(Template.strSessionSelectorValue));
+    }
+};
+
+Template.setCodeMirrorValue = function (divSelector, val) {
+    if (divSelector.data('editor')) {
+        divSelector.data('editor').setValue(val);
+    }
+};
+
+Template.getCodeMirrorValue = function (divSelector) {
+    if (divSelector.data('editor')) {
+        return divSelector.data('editor').getValue();
+    }
+    throw 'Unexpected state, codemirror could not be found';
 };

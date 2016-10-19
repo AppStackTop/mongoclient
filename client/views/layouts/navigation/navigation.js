@@ -1,27 +1,99 @@
+var toastr = require('toastr');
 Template.navigation.events({
-    'click #btnAddCollection': function (e) {
+    'click #anchorDatabaseDumpRestore': function (e) {
+        
         e.preventDefault();
-        Template.warnDemoApp();
+        var connection = Connections.findOne({_id: Session.get(Template.strSessionConnection)});
+
+        if (connection.sshAddress) {
+            toastr.info('Unfortunately, this feature is not usable in SSH connections');
+            return;
+        }
+
+        Router.go('databaseDumpRestore');
     },
 
-    'click #btnRefreshCollections2': function (e) {
+    'click #btnAddCollection': function (e) {
+        e.preventDefault();
+        $('#collectionAddModal').modal('show');
+    },
+
+    'click #btnRefreshCollections': function (e) {
         e.preventDefault();
         Template.topNavbar.connect(true);
     },
 
     'click #btnDropCollection': function (e) {
         e.preventDefault();
-        Template.warnDemoApp();
+
+        var collectionName = this.name;
+        swal({
+            title: "Are you sure?",
+            text: this.name + " collection will be dropped, are you sure ?",
+            type: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#DD6B55",
+            confirmButtonText: "Yes, drop it!",
+            closeOnConfirm: true
+        }, function (isConfirm) {
+            if (isConfirm) {
+                Template.navigation.dropCollection(collectionName);
+            }
+        });
     },
 
     'click #btnDropAllCollections': function (e) {
         e.preventDefault();
-        Template.warnDemoApp();
+        swal({
+            title: "Are you sure?",
+            text: "All collections except system, will be dropped, are you sure ?",
+            type: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#DD6B55",
+            confirmButtonText: "Yes, drop them!",
+            closeOnConfirm: false
+        }, function () {
+            Meteor.call('dropAllCollections', function (err, result) {
+                if (err || result.error) {
+                    Template.showMeteorFuncError(err, result, "Couldn't drop all collections");
+                }
+                else {
+                    Template.clearSessions();
+                    swal({
+                        title: "Dropped!",
+                        text: "Successfuly dropped all collections database ",
+                        type: "success"
+                    });
+                }
+            });
+        });
     },
 
     'click #btnDropDatabase': function (e) {
         e.preventDefault();
-        Template.warnDemoApp();
+        swal({
+            title: "Are you sure?",
+            text: "You will not be able to recover this database!",
+            type: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#DD6B55",
+            confirmButtonText: "Yes, drop it!",
+            closeOnConfirm: false
+        }, function () {
+            Meteor.call('dropDB', function (err, result) {
+                if (err || result.error) {
+                    Template.showMeteorFuncError(err, result, "Couldn't drop database");
+                }
+                else {
+                    Template.clearSessions();
+                    swal({
+                        title: "Dropped!",
+                        text: "Successfuly dropped database ",
+                        type: "success"
+                    });
+                }
+            });
+        });
     },
 
 
@@ -120,42 +192,39 @@ Template.navigation.handleNavigationAndSessions = function () {
 };
 
 Template.navigation.dropCollection = function (collectionName) {
-    var connection = Connections.findOne({_id: Session.get(Template.strSessionConnection)});
-    Meteor.call('dropCollection', connection, collectionName, function (err, result) {
-        if (err) {
-            toastr.error("Couldn't drop collection: " + err.message);
-            return;
+    Meteor.call('dropCollection', collectionName, function (err, result) {
+        if (err || result.error) {
+            Template.showMeteorFuncError(err, result, "Couldn't drop collection");
         }
-        if (result.error) {
-            toastr.error("Couldn't drop collection: " + result.error.message);
-            return;
+        else {
+            Template.navigation.renderCollectionNames();
+            toastr.success('Successfuly dropped collection: ' + collectionName);
         }
-        Template.navigation.renderCollectionNames();
-        toastr.success('Successfuly dropped collection: ' + collectionName);
     });
 };
 
 Template.navigation.renderCollectionNames = function () {
-    var connection = Connections.findOne({_id: Session.get(Template.strSessionConnection)});
-    Meteor.call('connect', connection, function (err, result) {
+    Meteor.call('connect', Session.get(Template.strSessionConnection), function (err, result) {
         if (err || result.error) {
-            var errorMessage;
-            if (err) {
-                errorMessage = err.message;
-            } else {
-                errorMessage = result.error.message;
-            }
-
-            toastr.error("Couldn't connect: " + errorMessage);
-            return;
+            Template.showMeteorFuncError(err, result, "Couldn't connect");
         }
+        else {
+            result.result.sort(function compare(a, b) {
+                if (a.name < b.name)
+                    return -1;
+                else if (a.name > b.name)
+                    return 1;
+                else
+                    return 0;
+            });
 
-        // re-set collection names
-        Session.set(Template.strSessionCollectionNames, result.result);
-        // set all session values undefined except connection
-        Session.set(Template.strSessionSelectedQuery, undefined);
-        Session.set(Template.strSessionSelectedOptions, undefined);
-        Session.set(Template.strSessionSelectedCollection, undefined);
-        Router.go('databaseStats');
+            // re-set collection names
+            Session.set(Template.strSessionCollectionNames, result.result);
+            // set all session values undefined except connection
+            Session.set(Template.strSessionSelectedQuery, undefined);
+            Session.set(Template.strSessionSelectedOptions, undefined);
+            Session.set(Template.strSessionSelectedCollection, undefined);
+            Router.go('databaseStats');
+        }
     });
 };

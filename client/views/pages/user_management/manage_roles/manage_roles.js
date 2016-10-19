@@ -1,3 +1,5 @@
+var toastr = require('toastr');
+var Ladda = require('ladda');
 /**
  * Created by sercan on 14.04.2016.
  */
@@ -20,7 +22,39 @@ Template.manageRoles.helpers({
 Template.manageRoles.events({
     'click .editor_delete_role': function (e) {
         e.preventDefault();
-        Template.warnDemoApp();
+
+        if (!Session.get(Template.strSessionUsermanagementRole)) {
+            return;
+        }
+        swal({
+            title: "Are you sure ?",
+            text: "You can NOT recover this role afterwards, are you sure ?",
+            type: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#DD6B55",
+            confirmButtonText: "Yes!",
+            cancelButtonText: "No"
+        }, function (isConfirm) {
+            if (isConfirm) {
+                
+                var l = Ladda.create(document.querySelector('#btnCloseUMRoles'));
+                l.start();
+
+                var command = {dropRole: Session.get(Template.strSessionUsermanagementRole).role};
+
+                var runOnAdminDB = $('#aRunOnAdminDBToFetchUsers').iCheck('update')[0].checked;
+
+                Meteor.call('command', command, false, false, runOnAdminDB, function (err, result) {
+                    if (err || result.error) {
+                        Template.showMeteorFuncError(err, result, "Couldn't drop role");
+                    }
+                    else {
+                        Template.manageRoles.initRoles();
+                        toastr.success('Successfuly dropped role !');
+                    }
+                });
+            }
+        });
     },
 
     'click .editor_edit': function (e) {
@@ -38,8 +72,9 @@ Template.manageRoles.events({
         $('#addEditPrivilegeModalTitle').text('Edit Privilege');
         $('#addEditPrivilegeModalText').text('');
 
-        var l = $('#btnApplyAddPrivilegeToRole').ladda();
-        l.ladda('start');
+        
+        var l = Ladda.create(document.querySelector('#btnApplyAddPrivilegeToRole'));
+        l.start();
 
         var selectedResource = Session.get(Template.strSessionUsermanagementPrivilege).resource;
         var dbToSelect = '', collectionToSelect = '';
@@ -75,8 +110,9 @@ Template.manageRoles.events({
         $('#addEditPrivilegeModalTitle').text('Add Privilege');
         $('#addEditPrivilegeModalText').text('Role ' + (Session.get(Template.strSessionUsermanagementRole) ? Session.get(Template.strSessionUsermanagementRole).role : ''));
 
-        var l = $('#btnApplyAddPrivilegeToRole').ladda();
-        l.ladda('start');
+        
+        var l = Ladda.create(document.querySelector('#btnApplyAddPrivilegeToRole'));
+        l.start();
 
         Template.manageRoles.initResourcesForPrivileges();
         Template.manageRoles.initActionsForPrivilege();
@@ -91,8 +127,9 @@ Template.manageRoles.events({
             return;
         }
 
-        var l = $('#btnAddInheritRole').ladda();
-        l.ladda('start');
+        
+        var l = Ladda.create(document.querySelector('#btnAddInheritRole'));
+        l.start();
 
         Template.manageRoles.initDatabasesForInheritRole();
         $('#addRoleToInherit').modal('show');
@@ -100,7 +137,57 @@ Template.manageRoles.events({
 
     'click #btnApplyAddEditRole': function (e) {
         e.preventDefault();
-        Template.warnDemoApp();
+        var titleSelector = $('#addEditRoleModalTitle');
+        var roleNameSelector = $('#inputRoleUM');
+
+        if (Session.get(Template.strSessionUsermanagementRole) && Session.get(Template.strSessionUsermanagementRole).isBuiltin && titleSelector.text() == 'Edit Role') {
+            toastr.warning('Cannot change builtin roles !');
+            return;
+        }
+
+        if ($('#tblRolePrivileges').DataTable().rows().data().length == 0) {
+            toastr.warning('At least one privilege is required !');
+            return;
+        }
+
+        if (!roleNameSelector.val()) {
+            toastr.warning('Role name is required !');
+            return;
+        }
+
+        var command = {};
+        if (titleSelector.text() == 'Edit Role') {
+            command.updateRole = roleNameSelector.val();
+        } else {
+            command.createRole = roleNameSelector.val();
+        }
+
+        command.privileges = Template.manageRoles.populatePrivilegesToSave();
+        command.roles = Template.manageRoles.populateInheritRolesToSave();
+
+        
+        var l = Ladda.create(document.querySelector('#btnApplyAddEditRole'));
+        l.start();
+
+        var runOnAdminDB = $('#aRunOnAdminDBToFetchUsers').iCheck('update')[0].checked;
+
+        Meteor.call('command', command, false, false, runOnAdminDB, function (err, result) {
+            if (err || result.error) {
+                Template.showMeteorFuncError(err, result, "Couldn't update role");
+            }
+            else {
+                Template.manageRoles.initRoles();
+                if ($('#addEditRoleModalTitle').text() == 'Edit Role') {
+                    toastr.success('Successfuly updated role !');
+                }
+                else {
+                    toastr.success('Successfuly added role !');
+                }
+                $('#editRoleModal').modal('hide');
+            }
+
+            Ladda.stopAll();
+        });
     },
 
     'click #btnAddNewRole': function (e) {
@@ -118,8 +205,9 @@ Template.manageRoles.events({
     'change #cmbPrivilegeResource': function () {
         var db = $('#cmbPrivilegeResource').find(":selected").text();
         if (db && db != 'anyResource' && db != 'cluster') {
-            var l = $('#btnApplyAddPrivilegeToRole').ladda();
-            l.ladda('start');
+            
+            var l = Ladda.create(document.querySelector('#btnApplyAddPrivilegeToRole'));
+            l.start();
 
             Template.manageRoles.initCollectionsForPrivilege(null, db, true);
         } else {
@@ -131,20 +219,103 @@ Template.manageRoles.events({
 
     'click #btnApplyAddPrivilegeToRole': function (e) {
         e.preventDefault();
-        Template.warnDemoApp();
+
+        var cmbPrivilegeSelector = $('#cmbPrivilegeResource');
+        var cmbPrivilegeCollection = $('#cmbPrivilegeCollection');
+
+        var actions = $('#cmbActionsOfPrivilege').val();
+        var resource = cmbPrivilegeSelector.val() ? cmbPrivilegeSelector.val() : '';
+        if (cmbPrivilegeCollection.val() && resource != 'anyResource' && resource != 'cluster') {
+            if (resource) {
+                resource = '<b>' + cmbPrivilegeCollection.val() + '</b>@' + resource;
+            } else {
+                resource = '<b>' + cmbPrivilegeCollection.val() + '</b>';
+            }
+        }
+
+        if (!actions) {
+            toastr.warning('At least one action is required !');
+            return;
+        }
+
+        var privilegesTableSelector = $('#tblRolePrivileges').DataTable();
+        if ($('#addEditPrivilegeModalTitle').text() == 'Edit Privilege') {
+            // edit existing privilege of role
+            var selectedRowData = Session.get(Template.strSessionUsermanagementPrivilege);
+
+            privilegesTableSelector.rows().every(function () {
+                var privilegesData = this.data();
+                if (_.isEqual(privilegesData.privilege, selectedRowData.privilege)
+                    && privilegesData.resource == selectedRowData.resource) {
+
+                    privilegesData.privilege = actions;
+                    privilegesData.resource = resource;
+                }
+
+                this.invalidate();
+            });
+
+            privilegesTableSelector.draw();
+        }
+        else {
+            var objectToAdd = {
+                privilege: actions,
+                resource: resource
+            };
+
+            if (privilegesTableSelector.rows().data().length == 0) {
+                Template.manageRoles.populateRolePrivilegesTable(null, [objectToAdd]);
+            }
+            else {
+                privilegesTableSelector.row.add(objectToAdd).draw();
+            }
+        }
+
+        $('#addPrivilegeToRoleModal').modal('hide');
     },
 
     'click #btnAddInheritRole': function (e) {
         e.preventDefault();
-        Template.warnDemoApp();
+
+        var db = $('#cmbDatabasesForInheritRole').val();
+        var role = $('#cmbRolesForDBForInheritedRole').val();
+
+        if (!db) {
+            toastr.warning('Database is required !');
+            return;
+        }
+        if (!role) {
+            toastr.warning('Role is required !');
+            return;
+        }
+
+        var table = $('#tblRolesToInherit').DataTable();
+        var currentDatas = table.rows().data();
+        for (var i = 0; i < currentDatas.length; i++) {
+            if (currentDatas[i].db == db && currentDatas[i].role == role) {
+                toastr.error('<b>' + role + '</b>@' + db + ' already exists !');
+                return;
+            }
+        }
+
+        var objectToAdd = {role: role, db: db};
+        if (table.rows().data().length == 0) {
+            Template.manageRoles.populateRolesToInheritTable(null, [objectToAdd]);
+        }
+        else {
+            table.row.add(objectToAdd).draw();
+        }
+
+        toastr.success('<b>' + role + '</b>@' + db + ' successfuly added');
     }
 
 });
 
 Template.manageRoles.initRoles = function () {
     // loading button
-    var l = $('#btnCloseUMRoles').ladda();
-    l.ladda('start');
+    
+    var l = Ladda.create(document.querySelector('#btnCloseUMRoles'));
+    l.start();
 
     var command = {
         rolesInfo: 1,
@@ -153,7 +324,7 @@ Template.manageRoles.initRoles = function () {
 
     var runOnAdminDB = $('#aRunOnAdminDBToFetchUsers').iCheck('update')[0].checked;
 
-    Meteor.call('command', Session.get(Template.strSessionConnection), command, false, false, runOnAdminDB, function (err, result) {
+    Meteor.call('command', command, false, false, runOnAdminDB, function (err, result) {
         if (err || result.error) {
             Template.showMeteorFuncError(err, result, "Couldn't fetch roles");
         }
@@ -197,14 +368,16 @@ Template.manageRoles.initRoles = function () {
             });
         }
 
+                     
         Ladda.stopAll();
     });
 };
 
 Template.manageRoles.popEditRoleModal = function (role) {
     $('#addEditRoleModalTitle').text('Edit Role');
-    var l = $('#btnCloseUMRoles').ladda();
-    l.ladda('start');
+    
+    var l = Ladda.create(document.querySelector('#btnCloseUMRoles'));
+    l.start();
 
     var connection = Connections.findOne({_id: Session.get(Template.strSessionConnection)});
     var runOnAdminDB = $('#aRunOnAdminDBToFetchUsers').iCheck('update')[0].checked;
@@ -216,7 +389,7 @@ Template.manageRoles.popEditRoleModal = function (role) {
         showPrivileges: true
     };
 
-    Meteor.call('command', connection._id, rolesInfoCommand, false, false, runOnAdminDB, function (err, result) {
+    Meteor.call('command', rolesInfoCommand, false, false, runOnAdminDB, function (err, result) {
         if (err || result.error) {
             Template.showMeteorFuncError(err, result, "Couldn't fetch roleInfo");
         }
@@ -397,7 +570,7 @@ Template.manageRoles.initResourcesForPrivileges = function (dbToSelect, collecti
 
     var cmbDBGroup = cmb.find('#optDB');
 
-    Meteor.call('getDatabases', Session.get(Template.strSessionConnection), function (err, result) {
+    Meteor.call('getDatabases', function (err, result) {
         if (err || result.error) {
             Template.showMeteorFuncError(err, result, "Couldn't fetch databases");
         }
@@ -443,7 +616,7 @@ Template.manageRoles.initCollectionsForPrivilege = function (collectionToSelect,
     var cmbGroup = cmb.find('#optCollections');
 
     if (db) {
-        Meteor.call('listCollectionNames', Session.get(Template.strSessionConnection), db, function (err, result) {
+        Meteor.call('listCollectionNames', db, function (err, result) {
             if (err || result.error) {
                 Template.showMeteorFuncError(err, result, "Couldn't fetch collection names");
             }
@@ -543,7 +716,7 @@ Template.manageRoles.initDatabasesForInheritRole = function () {
     var cmb = $('#cmbDatabasesForInheritRole');
     cmb.empty();
 
-    Meteor.call('getDatabases', Session.get(Template.strSessionConnection), function (err, result) {
+    Meteor.call('getDatabases', function (err, result) {
         if (err || result.error) {
             Template.showMeteorFuncError(err, result, "Couldn't fetch databases");
         }
@@ -573,7 +746,7 @@ Template.manageRoles.initRolesForDBForInheritRole = function () {
     cmb.prepend("<option value=''></option>");
 
     var runOnAdminDB = $('#aRunOnAdminDBToFetchUsers').iCheck('update')[0].checked;
-    Meteor.call('command', Session.get(Template.strSessionConnection), {
+    Meteor.call('command', {
         rolesInfo: 1,
         showBuiltinRoles: true
     }, false, false, runOnAdminDB, function (err, result) {

@@ -1,3 +1,5 @@
+var toastr = require('toastr');
+var Ladda = require('ladda');
 /**
  * Created by RSercan on 17.1.2016.
  */
@@ -8,30 +10,71 @@ Template.databaseDumpRestore.onRendered(function () {
     }
 
     Template.initiateDatatable($('#tblDumps'), Template.strSessionSelectedDump);
+    Template.databaseDumpRestore.populateDatatable();
 });
 
 Template.databaseDumpRestore.events({
     'click #btnTakeDump': function (e) {
+
         e.preventDefault();
         var settings = Settings.findOne();
-        Template.warnDemoApp();
+
+
+        var laddaButton = Ladda.create(document.querySelector('#btnTakeDump'));
+        laddaButton.start();
+
+        Meteor.call('takeDump', Session.get(Template.strSessionConnection), settings.dumpPath, function (err) {
+            if (err) {
+                toastr.error("Couldn't take dump, " + err.message);
+            }
+            else {
+                toastr.success('A background process to take a dump has started, whenever it finishes you can see the dump on this page');
+            }
+
+            Ladda.stopAll();
+        });
     },
 
     'click .editor_import': function (e) {
         e.preventDefault();
-        Template.warnDemoApp();
+        if (Session.get(Template.strSessionSelectedDump)) {
+            swal({
+                title: "Are you sure?",
+                text: "All collections will be dropped, and restored !",
+                type: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#DD6B55",
+                confirmButtonText: "Yes, do it!",
+                closeOnConfirm: true
+            }, function () {
+
+                var laddaButton = Ladda.create(document.querySelector('#btnTakeDump'));
+                laddaButton.start();
+
+                var dumpInfo = Session.get(Template.strSessionSelectedDump);
+                dumpInfo.status = DUMP_STATUS.IN_PROGRESS;
+                Meteor.call('updateDump', dumpInfo); // this is a simple update to notify user on UI
+                Meteor.call('restoreDump', Session.get(Template.strSessionConnection), dumpInfo, function (err) {
+                    if (err) {
+                        toastr.error("Couldn't restore dump, " + err.message);
+                    }
+                    else {
+                        toastr.success('A background process to restore the dump(' + dumpInfo.filePath + ') has started, whenever it finishes you can see the result on this page');
+                    }
+
+                    Ladda.stopAll();
+                });
+            });
+        }
     }
 });
 
+Template.databaseDumpRestore.populateDatatable = function () {
+    var tblDumps = $('#tblDumps');
 
-Template.databaseDumpRestore.helpers({
-    'getDumps': function () {
-        return function () {
-            return Dumps.find({}, {sort: {date: -1}}).fetch(); // or .map()
-        };
-    },
-
-    'dumpsTableOptions': {
+    tblDumps.DataTable({
+        destroy: true,
+        data: Dumps.find({}, {sort: {date: -1}}).fetch(),
         columns: [
             {
                 title: '_id',
@@ -104,5 +147,5 @@ Template.databaseDumpRestore.helpers({
                 defaultContent: '<a href="" title="Import" class="editor_import"><i class="fa fa-database text-navy"></i></a>'
             }
         ]
-    }
-});
+    }).draw();
+};

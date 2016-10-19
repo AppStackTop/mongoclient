@@ -1,3 +1,4 @@
+var toastr = require('toastr');
 /**
  * Created by RSercan on 26.12.2015.
  */
@@ -49,14 +50,10 @@ Template.databaseStats.onRendered(function () {
     if (Settings.findOne().showDBStats) {
         interval = Meteor.setInterval(function () {
             Template.databaseStats.fetchStatus();
-        }, 7000);
+        }, 3000);
 
         // fetch stats only once.
         Template.databaseStats.fetchStats();
-
-        if (Session.get(Template.strSessionCollectionNames) != undefined) {
-            toastr.info("It can take a few seconds to populate charts !");
-        }
     }
 });
 
@@ -275,7 +272,7 @@ Template.databaseStats.helpers({
 
 Template.databaseStats.fetchStats = function () {
     if (Session.get(Template.strSessionCollectionNames) != undefined) {
-        Meteor.call("dbStats", Session.get(Template.strSessionConnection), function (err, result) {
+        Meteor.call("dbStats", function (err, result) {
             if (err || result.error) {
                 Template.showMeteorFuncError(err, result, "Couldn't execute dbStats");
                 Session.set(Template.strSessionDBStats, undefined);
@@ -290,9 +287,10 @@ Template.databaseStats.fetchStats = function () {
 
 Template.databaseStats.fetchStatus = function () {
     if (Session.get(Template.strSessionCollectionNames) != undefined) {
-        Meteor.call("serverStatus", Session.get(Template.strSessionConnection), function (err, result) {
+        Meteor.call("serverStatus", function (err, result) {
             if (err || result.error) {
-                Template.showMeteorFuncError(err, result, "Couldn't fetch serverStatus");
+                var errorMessage = result.error ? result.error.message : err.message;
+                $('#errorMessage').text("Successfully connected but, couldn't fetch server status: " + errorMessage);
                 Session.set(Template.strSessionServerStatus, undefined);
             }
             else {

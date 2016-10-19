@@ -1,3 +1,19 @@
+var toastr = require('toastr');
+var CodeMirror = require("codemirror");
+
+require("/node_modules/codemirror/mode/javascript/javascript.js");
+require("/node_modules/codemirror/addon/fold/brace-fold.js");
+require("/node_modules/codemirror/addon/fold/comment-fold.js");
+require("/node_modules/codemirror/addon/fold/foldcode.js");
+require("/node_modules/codemirror/addon/fold/foldgutter.js");
+require("/node_modules/codemirror/addon/fold/indent-fold.js");
+require("/node_modules/codemirror/addon/fold/markdown-fold.js");
+require("/node_modules/codemirror/addon/fold/xml-fold.js");
+require("/node_modules/codemirror/addon/hint/javascript-hint.js");
+require("/node_modules/codemirror/addon/hint/show-hint.js");
+
+var Ladda = require('ladda');
+
 /**
  * Created by RSercan on 15.2.2016.
  */
@@ -10,11 +26,7 @@ Template.editDocument.onRendered(function () {
     Template.editDocument.initializeCollectionsCombobox();
     Session.set(Template.strSessionEasyEditID, undefined);
 
-    $('#aConvertIsoDates').iCheck({
-        checkboxClass: 'icheckbox_square-green'
-    });
-
-    $('#aConvertObjectIds').iCheck({
+    $('#aConvertIsoDates, #aConvertObjectIds').iCheck({
         checkboxClass: 'icheckbox_square-green'
     });
 
@@ -23,6 +35,20 @@ Template.editDocument.onRendered(function () {
 });
 
 Template.editDocument.events({
+    'click #btnInsertDocument': function (e) {
+        e.preventDefault();
+
+        if (!$('#cmbCollections').find(":selected").text()) {
+            toastr.warning('Please select a collection first !');
+            Ladda.stopAll();
+            return;
+        }
+
+        Session.set(Template.strSessionEasyEditID, undefined);
+        Template.editDocument.initializeResultArea('{}');
+        $('#btnDeleteDocument').prop('disabled', true);
+    },
+
     'click #btnFetchDocument': function (e) {
         e.preventDefault();
         Template.editDocument.fetchDocument();
@@ -30,12 +56,38 @@ Template.editDocument.events({
 
     'click #btnSaveDocument': function (e) {
         e.preventDefault();
-        Template.warnDemoApp();
+
+        var text = Session.get(Template.strSessionEasyEditID) ? 'This document will be overwritten, are you sure ?' : 'This document will be inserted, are you sure ?';
+        swal({
+            title: "Are you sure ?",
+            text: text,
+            type: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#DD6B55",
+            confirmButtonText: "Yes!",
+            cancelButtonText: "No"
+        }, function (isConfirm) {
+            if (isConfirm) {
+                Template.editDocument.saveDocument();
+            }
+        });
     },
 
     'click #btnDeleteDocument': function (e) {
         e.preventDefault();
-        Template.warnDemoApp();
+        swal({
+            title: "Are you sure ?",
+            text: "This document will be deleted, are you sure ?",
+            type: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#DD6B55",
+            confirmButtonText: "Yes!",
+            cancelButtonText: "No"
+        }, function (isConfirm) {
+            if (isConfirm) {
+                Template.editDocument.deleteDocument();
+            }
+        });
     }
 
 });
@@ -95,13 +147,14 @@ Template.editDocument.initializeResultArea = function (result) {
 };
 
 Template.editDocument.deleteDocument = function () {
-    var l = $('#btnDeleteDocument').ladda();
-    l.ladda('start');
+    
+    var l = Ladda.create(document.querySelector('#btnDeleteDocument'));
+    l.start();
 
     var collectionName = $('#cmbCollections').find(":selected").text();
     var idQuery = {_id: Session.get(Template.strSessionEasyEditID)};
 
-    Meteor.call('delete', Session.get(Template.strSessionConnection), collectionName, idQuery, function (err, result) {
+    Meteor.call('delete', collectionName, idQuery, function (err, result) {
         if (err) {
             toastr.error("Couldn't delete: " + err.message);
         }
@@ -118,54 +171,81 @@ Template.editDocument.deleteDocument = function () {
             toastr.error("Couldn't delete: " + JSON.stringify(result));
         }
 
+                     
         Ladda.stopAll();
     });
 };
 
 Template.editDocument.saveDocument = function () {
-    var l = $('#btnSaveDocument').ladda();
-    l.ladda('start');
+    
+    var l = Ladda.create(document.querySelector('#btnSaveDocument'));
+    l.start();
 
     var collectionName = $('#cmbCollections').find(":selected").text();
-    var idQuery = {_id: Session.get(Template.strSessionEasyEditID)};
     var setValue = $('#divResult').data('editor').getValue();
 
     setValue = Template.convertAndCheckJSON(setValue);
     if (setValue["ERROR"]) {
         toastr.error("Syntax error on document: " + setValue["ERROR"]);
+                     
         Ladda.stopAll();
         return;
     }
-    // remove id just in case
-    delete setValue._id;
-
-    setValue = {"$set": setValue};
 
     var convertIds = $('#aConvertObjectIds').iCheck('update')[0].checked;
     var convertDates = $('#aConvertIsoDates').iCheck('update')[0].checked;
 
-    Meteor.call('updateOne', Session.get(Template.strSessionConnection), collectionName, idQuery, setValue, convertIds, convertDates,
-        function (err) {
-            if (err) {
-                toastr.error("Couldn't update: " + err.message);
-            } else {
-                toastr.success('Successfuly updated !');
-            }
+    if (Session.get(Template.strSessionEasyEditID)) {
+        // remove id just in case
+        delete setValue._id;
+        setValue = {"$set": setValue};
+        var idQuery = {_id: Session.get(Template.strSessionEasyEditID)};
 
-            Ladda.stopAll();
+        Meteor.call('updateOne', collectionName, idQuery, setValue, {}, convertIds, convertDates,
+            function (err) {
+                if (err) {
+                    toastr.error("Couldn't update: " + err.message);
+                } else {
+                    toastr.success('Successfuly updated !');
+                }
+
+                
+   Ladda.stopAll();
+            }
+        );
+    } else {
+        if (!(setValue instanceof Array)) {
+            var newArray = [];
+            newArray.push(setValue);
+            setValue = newArray;
         }
-    );
+
+        Meteor.call('insertMany', collectionName, setValue, convertIds, convertDates,
+            function (err) {
+                if (err) {
+                    toastr.error("Couldn't insert: " + err.message);
+                } else {
+                    toastr.success('Successfuly inserted !');
+                }
+
+                
+   Ladda.stopAll();
+            }
+        );
+    }
 };
 
 Template.editDocument.fetchDocument = function () {
-    var l = $('#btnFetchDocument').ladda();
-    l.ladda('start');
+    
+    var l = Ladda.create(document.querySelector('#btnFetchDocument'));
+    l.start();
 
     var collectionName = $('#cmbCollections').find(":selected").text();
     var selector = Template.selector.getValue();
 
     if (!collectionName) {
         toastr.warning('Please select a collection first !');
+                     
         Ladda.stopAll();
         return;
     }
@@ -180,7 +260,7 @@ Template.editDocument.fetchDocument = function () {
     var convertIds = $('#aConvertObjectIds').iCheck('update')[0].checked;
     var convertDates = $('#aConvertIsoDates').iCheck('update')[0].checked;
 
-    Meteor.call("findOne", Session.get(Template.strSessionConnection), collectionName, selector, {}, convertIds, convertDates,
+    Meteor.call("findOne", collectionName, selector, {}, convertIds, convertDates,
         function (err, result) {
             var divResult = $('#divResult');
 
@@ -192,15 +272,15 @@ Template.editDocument.fetchDocument = function () {
                 }
             }
             else if (!result.result) {
-                toastr.error("There's no matched document");
-                if (divResult.css('display') != 'none') {
-                    divResult.hide();
-                    $('#divFooter').hide();
-                }
+                toastr.info("There's no matched document, you can insert one (array of documents are applicable) !");
+                Session.set(Template.strSessionEasyEditID, undefined);
+                Template.editDocument.initializeResultArea('{}');
+                $('#btnDeleteDocument').prop('disabled', true);
             }
             else {
                 Template.editDocument.initializeResultArea(JSON.stringify(result.result, null, '\t'));
                 Session.set(Template.strSessionEasyEditID, result.result._id);
+                $('#btnDeleteDocument').prop('disabled', false);
             }
 
             Ladda.stopAll();

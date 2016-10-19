@@ -1,3 +1,5 @@
+var toastr = require('toastr');
+var Ladda = require('ladda');
 /**
  * Created by RSercan on 9.1.2016.
  */
@@ -45,7 +47,7 @@ Template.addUser.executeQuery = function () {
 
     var runOnAdminDB = $('#aRunOnAdminDB').iCheck('update')[0].checked;
 
-    Meteor.call("addUser", Session.get(Template.strSessionConnection), username, password, options, runOnAdminDB, function (err, result) {
+    Meteor.call("addUser", username, password, options, runOnAdminDB, function (err, result) {
         Template.renderAfterQueryExecution(err, result, true);
     });
 };

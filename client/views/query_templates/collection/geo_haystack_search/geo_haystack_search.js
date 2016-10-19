@@ -1,3 +1,5 @@
+var toastr = require('toastr');
+var Ladda = require('ladda');
 /**
  * Created by RSercan on 2.1.2016.
  */
@@ -45,7 +47,7 @@ Template.geoHaystackSearch.executeQuery = function (historyParams) {
         options: options
     };
 
-    Meteor.call("geoHaystackSearch", Session.get(Template.strSessionConnection), selectedCollection, xAxis, yAxis, options, function (err, result) {
+    Meteor.call("geoHaystackSearch", selectedCollection, xAxis, yAxis, options, function (err, result) {
         Template.renderAfterQueryExecution(err, result, false, "geoHaystackSearch", params, (historyParams ? false : true));
     });
 };

@@ -1,9 +1,11 @@
+var toastr = require('toastr');
+var Ladda = require('ladda');
 /**
  * Created by RSercan on 3.1.2016.
  */
 Template.mapReduce.onRendered(function () {
-    Template.mapReduce.initializeAceEditor('aceMap');
-    Template.mapReduce.initializeAceEditor('aceReduce');
+    Template.initializeCodeMirror($('#divMap'), 'txtMap');
+    Template.initializeCodeMirror($('#divReduce'), 'txtReduce');
     Template.mapReduce.initializeOptions();
     Template.changeConvertOptionsVisibility(false);
 });
@@ -20,30 +22,12 @@ Template.mapReduce.initializeOptions = function () {
     Template.setOptionsComboboxChangeEvent(cmb);
 };
 
-Template.mapReduce.initializeAceEditor = function (id) {
-    Tracker.autorun(function (e) {
-        var editor = AceEditor.instance(id, {
-            mode: "javascript",
-            theme: 'dawn'
-        });
-        if (editor.loaded !== undefined) {
-            e.stop();
-            editor.$blockScrolling = Infinity;
-            editor.getSession().setOption("useWorker", false);
-            editor.setOptions({
-                fontSize: "11pt",
-                showPrintMargin: false
-            });
-        }
-    });
-};
-
 Template.mapReduce.executeQuery = function (historyParams) {
     Template.browseCollection.initExecuteQuery();
     var selectedCollection = Session.get(Template.strSessionSelectedCollection);
     var options = historyParams ? historyParams.options : Template.mapReduceOptions.getOptions();
-    var map = historyParams ? JSON.stringify(historyParams.map) : ace.edit("aceMap").getSession().getValue();
-    var reduce = historyParams ? JSON.stringify(historyParams.reduce) : ace.edit("aceReduce").getSession().getValue();
+    var map = historyParams ? JSON.stringify(historyParams.map) : Template.getCodeMirrorValue($('#divMap'));
+    var reduce = historyParams ? JSON.stringify(historyParams.reduce) : Template.getCodeMirrorValue($('#divReduce'));
 
 
     if (map.parseFunction() == null) {
@@ -70,7 +54,7 @@ Template.mapReduce.executeQuery = function (historyParams) {
         options: options
     };
 
-    Meteor.call("mapReduce", Session.get(Template.strSessionConnection), selectedCollection, map, reduce, options, function (err, result) {
+    Meteor.call("mapReduce", selectedCollection, map, reduce, options, function (err, result) {
         Template.renderAfterQueryExecution(err, result, false, "mapReduce", params, (historyParams ? false : true));
     });
 };

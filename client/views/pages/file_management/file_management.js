@@ -1,3 +1,6 @@
+var JSONEditor = require('jsoneditor');
+var toastr = require('toastr');
+var Ladda = require('ladda');
 /**
  * Created by sercan on 09.02.2016.
  */
@@ -8,23 +11,7 @@ Template.fileManagement.onRendered(function () {
     }
 
     Template.fileManagement.initFileInformations();
-
-    var selector = $('#tblFiles');
-    selector.find('tbody').on('click', 'tr', function () {
-        var table = selector.DataTable();
-
-        if ($(this).hasClass('selected')) {
-            $(this).removeClass('selected');
-        }
-        else {
-            table.$('tr.selected').removeClass('selected');
-            $(this).addClass('selected');
-        }
-
-        if (table.row(this).data()) {
-            Session.set(Template.strSessionSelectedFile, table.row(this).data());
-        }
-    });
+    Template.initiateDatatable($('#tblFiles'), Template.strSessionSelectedFile, true);
 });
 
 Template.fileManagement.events({
@@ -34,18 +21,86 @@ Template.fileManagement.events({
 
     'click .editor_download': function (e) {
         e.preventDefault();
-        Template.warnDemoApp();
+        var fileRow = Session.get(Template.strSessionSelectedFile);
+        if (fileRow) {
+            window.open(Router.url('download', {
+                fileId: fileRow._id,
+                bucketName: $('#txtBucketName').val()
+            }));
+        }
     },
 
     'click .editor_delete': function (e) {
+        var fileRow = Session.get(Template.strSessionSelectedFile);
+        if (fileRow) {
+            swal({
+                title: "Are you sure ?",
+                text: "You can NOT recover this file afterwards, are you sure ?",
+                type: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#DD6B55",
+                confirmButtonText: "Yes!",
+                cancelButtonText: "No"
+            }, function (isConfirm) {
+                if (isConfirm) {
+                    
+                    var l = Ladda.create(document.querySelector('#btnReloadFiles'));
+                    l.start();
+                    Meteor.call('deleteFile', $('#txtBucketName').val(), fileRow._id, function (err) {
+                        if (err) {
+                            toastr.error("Couldn't delete: " + err.message);
+                        } else {
+                            toastr.success('Successfuly deleted !');
+                            Template.fileManagement.initFileInformations();
+                        }
+                    });
+                }
+            });
+        }
+    },
+
+    'click #btnUpdateMetadata': function (e) {
         e.preventDefault();
-        Template.warnDemoApp();
+
+        swal({
+            title: "Are you sure ?",
+            text: "Existing metadata will be overwritten, are you sure ?",
+            type: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#DD6B55",
+            confirmButtonText: "Yes!",
+            cancelButtonText: "No"
+        }, function (isConfirm) {
+            if (isConfirm) {
+                
+                var l = Ladda.create(document.querySelector('#btnUpdateMetadata'));
+                l.start();
+                var jsonEditor = $('#jsonEditorOfMetadata').data('jsoneditor');
+                var setValue = jsonEditor.get();
+                delete setValue._id;
+
+                Meteor.call('updateOne', $('#txtBucketName').val() + '.files',
+                    {'_id': Session.get(Template.strSessionSelectedFile)._id}, {"$set": setValue}, {}, true, true,
+                    function (err, result) {
+                        if (err) {
+                            toastr.error("Couldn't update file info: " + err.message);
+                        } else {
+                            toastr.success('Successfully updated file information !');
+                            Template.fileManagement.proceedShowingMetadata(Session.get(Template.strSessionSelectedFile)._id, jsonEditor);
+                        }
+
+                        
+           Ladda.stopAll();
+                    });
+            }
+        });
     },
 
     'click .editor_show_metadata': function (e) {
         e.preventDefault();
-        var l = $('#btnClose').ladda();
-        l.ladda('start');
+        
+        var l = Ladda.create(document.querySelector('#btnClose'));
+        l.start();
 
         var fileRow = Session.get(Template.strSessionSelectedFile);
         if (fileRow) {
@@ -62,41 +117,42 @@ Template.fileManagement.events({
             }
 
             $('#metaDataModal').modal('show');
-            var connection = Connections.findOne({_id: Session.get(Template.strSessionConnection)});
-            Meteor.call('getFile', connection, $('#txtBucketName').val(), fileRow._id, function (err, result) {
-                if (err) {
-                    toastr.error("Couldn't find: " + err.message);
-                    Ladda.stopAll();
-                    return;
-                }
-                if (result.error) {
-                    toastr.error("Couldn't find: " + result.error.message);
-                    Ladda.stopAll();
-                    return;
-                }
-                jsonEditor.set(result.result);
-                Ladda.stopAll();
-            });
+            Template.fileManagement.proceedShowingMetadata(fileRow._id, jsonEditor);
         }
     }
 
 });
 
-Template.fileManagement.initFileInformations = function () {
-    // loading button
-    var l = $('#btnReloadFiles').ladda();
-    l.ladda('start');
+Template.fileManagement.proceedShowingMetadata = function (id, jsonEditor) {
+    Meteor.call('getFile', $('#txtBucketName').val(), id, function (err, result) {
+        if (err || result.error) {
+            Template.showMeteorFuncError(err, result, "Couldn't find file");
+        }
+        else {
+            jsonEditor.set(result.result);
+        }
+                     
+        Ladda.stopAll();
+    });
+};
 
-    var connection = Connections.findOne({_id: Session.get(Template.strSessionConnection)});
-    Meteor.call('getFileInfos', connection, $('#txtBucketName').val(), function (err, result) {
-            if (err) {
-                toastr.error("Couldn't get file informations: " + err.message);
-                Ladda.stopAll();
-                return;
-            }
-            if (result.error) {
-                toastr.error("Couldn't get file informations: " + result.error.message);
-                Ladda.stopAll();
+Template.fileManagement.initFileInformations = function () {
+    var l = Ladda.create(document.querySelector('#btnReloadFiles'));
+    l.start();
+
+    var selector = Template.selector.getValue();
+
+    selector = Template.convertAndCheckJSON(selector);
+    if (selector["ERROR"]) {
+        toastr.error("Syntax error on selector: " + selector["ERROR"]);
+                     
+        Ladda.stopAll();
+        return;
+    }
+
+    Meteor.call('getFileInfos', $('#txtBucketName').val(), selector,$('#txtFileFetchLimit').val(), function (err, result) {
+            if (err || result.error) {
+                Template.showMeteorFuncError(err, result, "Couldn't get file informations");
                 return;
             }
 
@@ -119,7 +175,7 @@ Template.fileManagement.initFileInformations = function () {
                         targets: [5],
                         data: null,
                         width: "5%",
-                        defaultContent: '<a href="" title="Show File Info" class="editor_show_metadata"><i class="fa fa-book text-navy"></i></a>'
+                        defaultContent: '<a href="" title="Edit Metadata" class="editor_show_metadata"><i class="fa fa-book text-navy"></i></a>'
                     },
                     {
                         targets: [6],

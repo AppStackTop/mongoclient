@@ -1,17 +1,14 @@
+var toastr = require('toastr');
+var Ladda = require('ladda');
 /**
  * Created by RSercan on 9.1.2016.
  */
 Template.settings.onRendered(function () {
-    $('#divAutoCompleteFields').iCheck({
+    $('#divAutoCompleteFields, #divShowDBStats').iCheck({
         checkboxClass: 'icheckbox_square-green'
     });
 
-    $('#divShowDBStats').iCheck({
-        checkboxClass: 'icheckbox_square-green'
-    });
-
-    $('#cmbScale').chosen();
-    $('#cmbResultView').chosen();
+    $('#cmbScale, #cmbResultView').chosen();
 
     Template.settings.load();
 });
@@ -19,7 +16,15 @@ Template.settings.onRendered(function () {
 Template.settings.events({
     'click #btnSaveSettings': function (e) {
         e.preventDefault();
-        Template.warnDemoApp();
+        
+        var laddaButton = Ladda.create(document.querySelector('#btnSaveSettings'));
+        laddaButton.start();
+
+        Meteor.call('updateSettings', Template.settings.getSettingsFromForm());
+        toastr.success('Successfuly saved !');
+
+                     
+        Ladda.stopAll();
     }
 });
 

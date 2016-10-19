@@ -1,3 +1,5 @@
+var toastr = require('toastr');
+var Ladda = require('ladda');
 /**
  * Created by sercan on 30.12.2015.
  */
@@ -16,6 +18,11 @@ Template.find.initializeOptions = function () {
 
     cmb.chosen();
     Template.setOptionsComboboxChangeEvent(cmb);
+
+    $('#divExecuteExplain').iCheck({
+        checkboxClass: 'icheckbox_square-green'
+    });
+    $('#inputExecuteExplain').iCheck('uncheck');
 };
 
 Template.find.executeQuery = function (historyParams) {
@@ -41,7 +48,7 @@ Template.find.executeQuery = function (historyParams) {
     // max allowed fetch size  != 0 and there's no project option, check for size
     if (maxAllowedFetchSize && maxAllowedFetchSize != 0 && !(CURSOR_OPTIONS.PROJECT in cursorOptions)) {
         // get stats to calculate fetched documents size from avgObjSize (stats could be changed, therefore we can't get it from html )
-        Meteor.call("stats", Session.get(Template.strSessionConnection), selectedCollection, {}, function (statsError, statsResult) {
+        Meteor.call("stats", selectedCollection, {}, function (statsError, statsResult) {
             if (statsError || statsResult.error || !(statsResult.result.avgObjSize)) {
                 // if there's an error, nothing we can do
                 Template.find.proceedFindQuery(selectedCollection, selector, cursorOptions, (historyParams ? false : true));
@@ -54,14 +61,14 @@ Template.find.executeQuery = function (historyParams) {
                     }
                 }
                 else {
-                    Meteor.call("count", Session.get(Template.strSessionConnection), selectedCollection, selector, function (err, result) {
+                    Meteor.call("count", selectedCollection, selector, function (err, result) {
                         if (err || result.error) {
                             Template.find.proceedFindQuery(selectedCollection, selector, cursorOptions, (historyParams ? false : true));
                         }
                         else {
                             var count = result.result;
                             if (Template.find.checkAverageSize(count, statsResult.result.avgObjSize, maxAllowedFetchSize)) {
-                                Template.find.proceedFindQuery( selectedCollection, selector, cursorOptions, (historyParams ? false : true));
+                                Template.find.proceedFindQuery(selectedCollection, selector, cursorOptions, (historyParams ? false : true));
                             }
                         }
                     });
@@ -82,8 +89,9 @@ Template.find.proceedFindQuery = function (selectedCollection, selector, cursorO
 
     var convertIds = $('#aConvertObjectIds').iCheck('update')[0].checked;
     var convertDates = $('#aConvertIsoDates').iCheck('update')[0].checked;
+    var executeExplain = $('#inputExecuteExplain').iCheck('update')[0].checked;
 
-    Meteor.call("find", Session.get(Template.strSessionConnection), selectedCollection, selector, cursorOptions, convertIds, convertDates, function (err, result) {
+    Meteor.call("find", selectedCollection, selector, cursorOptions, executeExplain, convertIds, convertDates, function (err, result) {
         Template.renderAfterQueryExecution(err, result, false, "find", params, saveHistory);
     });
 };

@@ -1,3 +1,6 @@
+var toastr = require('toastr');
+var Ladda = require('ladda');
+var JSONEditor = require('jsoneditor');
 /**
  * Created by RSercan on 10.1.2016.
  */
@@ -18,15 +21,7 @@ Template.adminQueries.onRendered(function () {
     });
     cmb.chosen();
 
-    $('#aConvertIsoDates').iCheck({
-        checkboxClass: 'icheckbox_square-green'
-    });
-
-    $('#aConvertObjectIds').iCheck({
-        checkboxClass: 'icheckbox_square-green'
-    });
-
-    $('#aRunOnAdminDB').iCheck({
+    $('#aConvertIsoDates, #aConvertObjectIds, #aRunOnAdminDB').iCheck({
         checkboxClass: 'icheckbox_square-green'
     });
 
@@ -116,8 +111,9 @@ Template.adminQueries.helpers({
 
 Template.adminQueries.initExecuteQuery = function () {
     // loading button
-    var l = $('#btnExecuteAdminQuery').ladda();
-    l.ladda('start');
+    
+    var l = Ladda.create(document.querySelector('#btnExecuteAdminQuery'));
+    l.start();
 };
 
 Template.adminQueries.setResult = function (result) {

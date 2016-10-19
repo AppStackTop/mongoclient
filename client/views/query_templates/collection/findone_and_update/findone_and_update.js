@@ -1,3 +1,5 @@
+var toastr = require('toastr');
+var Ladda = require('ladda');
 /**
  * Created by RSercan on 1.1.2016.
  */
@@ -23,7 +25,7 @@ Template.findOneAndUpdate.executeQuery = function (historyParams) {
     var selectedCollection = Session.get(Template.strSessionSelectedCollection);
     var options = historyParams ? historyParams.options : Template.findOneModifyOptions.getOptions();
     var selector = historyParams ? JSON.stringify(historyParams.selector) : Template.selector.getValue();
-    var setObject = historyParams ? JSON.stringify(historyParams.setObject) : ace.edit("aceSet").getSession().getValue();
+    var setObject = historyParams ? JSON.stringify(historyParams.setObject) : Template.getCodeMirrorValue($('#divSet'));
 
     selector = Template.convertAndCheckJSON(selector);
     if (selector["ERROR"]) {
@@ -55,7 +57,7 @@ Template.findOneAndUpdate.executeQuery = function (historyParams) {
     var convertIds = $('#aConvertObjectIds').iCheck('update')[0].checked;
     var convertDates = $('#aConvertIsoDates').iCheck('update')[0].checked;
 
-    Meteor.call("findOneAndUpdate", Session.get(Template.strSessionConnection), selectedCollection, selector, setObject, options, convertIds, convertDates,
+    Meteor.call("findOneAndUpdate", selectedCollection, selector, setObject, options, convertIds, convertDates,
         function (err, result) {
             Template.renderAfterQueryExecution(err, result, false, "findOneAndUpdate", params, (historyParams ? false : true));
         }

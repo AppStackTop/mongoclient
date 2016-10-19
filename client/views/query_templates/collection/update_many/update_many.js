@@ -1,3 +1,5 @@
+var toastr = require('toastr');
+var Ladda = require('ladda');
 /**
  * Created by sercan on 06.01.2016.
  */
@@ -23,7 +25,7 @@ Template.updateMany.executeQuery = function (historyParams) {
     var selectedCollection = Session.get(Template.strSessionSelectedCollection);
     var options = historyParams ? historyParams.options : Template.updateMany.getOptions();
     var selector = historyParams ? JSON.stringify(historyParams.selector) : Template.selector.getValue();
-    var setObject = historyParams ? JSON.stringify(historyParams.setObject) : ace.edit("aceSet").getSession().getValue();
+    var setObject = historyParams ? JSON.stringify(historyParams.setObject) : Template.getCodeMirrorValue($('#divSet'));
 
     selector = Template.convertAndCheckJSON(selector);
     if (selector["ERROR"]) {
@@ -56,7 +58,7 @@ Template.updateMany.executeQuery = function (historyParams) {
     var convertIds = $('#aConvertObjectIds').iCheck('update')[0].checked;
     var convertDates = $('#aConvertIsoDates').iCheck('update')[0].checked;
 
-    Meteor.call("updateMany", Session.get(Template.strSessionConnection), selectedCollection, selector, setObject, options, convertIds, convertDates,
+    Meteor.call("updateMany", selectedCollection, selector, setObject, options, convertIds, convertDates,
         function (err, result) {
             Template.renderAfterQueryExecution(err, result, false, "updateMany", params, (historyParams ? false : true));
         }
